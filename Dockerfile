@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     xvfb \
+    libatomic1 \
     libxss1 \
     libnss3 \
     libnspr4 \

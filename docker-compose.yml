@@ -1,80 +1,74 @@
 services:
-  # debug: docker compose run --rm -it browser-use-webui bash
+  ollama:
+    image: ollama/ollama:rocm
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    environment:
+      - HIP_VISIBLE_DEVICES=0
+      - OLLAMA_CONTEXT_LENGTH=32192
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - ai-network
+
   browser-use-webui:
-    # image: ghcr.io/browser-use/web-ui # Using precompiled image
     build:
       context: .
       dockerfile: Dockerfile
       args:
         TARGETPLATFORM: ${TARGETPLATFORM:-linux/amd64}
     ports:
-      - "7788:7788"
-      - "6080:6080"
-      - "5901:5901"
-      - "9222:9222"
+      - "127.0.0.1:7788:7788"
+      - "127.0.0.1:6080:6080"
+      - "127.0.0.1:5901:5901"
+      - "127.0.0.1:9222:9222"
     environment:
-      # LLM API Keys & Endpoints
-      - OPENAI_ENDPOINT=${OPENAI_ENDPOINT:-https://api.openai.com/v1}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_ENDPOINT=${ANTHROPIC_ENDPOINT:-https://api.anthropic.com}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
-      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
-      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
-      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2025-01-01-preview}
-      - DEEPSEEK_ENDPOINT=${DEEPSEEK_ENDPOINT:-https://api.deepseek.com}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - OLLAMA_ENDPOINT=${OLLAMA_ENDPOINT:-http://localhost:11434}
-      - MISTRAL_ENDPOINT=${MISTRAL_ENDPOINT:-https://api.mistral.ai/v1}
-      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
-      - ALIBABA_ENDPOINT=${ALIBABA_ENDPOINT:-https://dashscope.aliyuncs.com/compatible-mode/v1}
-      - ALIBABA_API_KEY=${ALIBABA_API_KEY:-}
-      - MOONSHOT_ENDPOINT=${MOONSHOT_ENDPOINT:-https://api.moonshot.cn/v1}
-      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-}
-      - UNBOUND_ENDPOINT=${UNBOUND_ENDPOINT:-https://api.getunbound.ai}
-      - UNBOUND_API_KEY=${UNBOUND_API_KEY:-}
-      - SiliconFLOW_ENDPOINT=${SiliconFLOW_ENDPOINT:-https://api.siliconflow.cn/v1/}
-      - SiliconFLOW_API_KEY=${SiliconFLOW_API_KEY:-}
-      - IBM_ENDPOINT=${IBM_ENDPOINT:-https://us-south.ml.cloud.ibm.com}
-      - IBM_API_KEY=${IBM_API_KEY:-}
-      - IBM_PROJECT_ID=${IBM_PROJECT_ID:-}
-
-      # Application Settings
-      - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-false}
-      - BROWSER_USE_LOGGING_LEVEL=${BROWSER_USE_LOGGING_LEVEL:-info}
-
-      # Browser Settings
-      - BROWSER_PATH=
-      - BROWSER_USER_DATA=
-      - BROWSER_DEBUGGING_PORT=${BROWSER_DEBUGGING_PORT:-9222}
-      - BROWSER_DEBUGGING_HOST=localhost
-      - USE_OWN_BROWSER=false
-      - KEEP_BROWSER_OPEN=true
-      - BROWSER_CDP=${BROWSER_CDP:-} # e.g., http://localhost:9222
-
-      # Display Settings
+      - DEFAULT_LLM=ollama
+      - OLLAMA_ENDPOINT=http://ollama:11434
+      - OLLAMA_HOST=http://ollama:11434
+      - ANONYMIZED_TELEMETRY=false
+      - BROWSER_USE_LOGGING_LEVEL=info
       - DISPLAY=:99
-      # This ENV is used by the Dockerfile during build time if playwright respects it.
-      # It's not strictly needed at runtime by docker-compose unless your app or scripts also read it.
-      - PLAYWRIGHT_BROWSERS_PATH=/ms-browsers # Matches Dockerfile ENV
-      - RESOLUTION=${RESOLUTION:-1920x1080x24}
-      - RESOLUTION_WIDTH=${RESOLUTION_WIDTH:-1920}
-      - RESOLUTION_HEIGHT=${RESOLUTION_HEIGHT:-1080}
-
-      # VNC Settings
-      - VNC_PASSWORD=${VNC_PASSWORD:-youvncpassword}
-
+      - RESOLUTION=1920x1080x24
+      - RESOLUTION_WIDTH=1920
+      - RESOLUTION_HEIGHT=1080
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-browsers
+      - KEEP_BROWSER_OPEN=true
+      - USE_OWN_BROWSER=false
+      - VNC_PASSWORD=${VNC_PASSWORD}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      # - ./my_chrome_data:/app/data/chrome_data # Optional: persist browser data
     restart: unless-stopped
     shm_size: "2gb"
     cap_add:
       - SYS_ADMIN
     tmpfs:
       - /tmp
+    depends_on:
+      ollama:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "5901"] # VNC port
+      test: ["CMD", "nc", "-z", "localhost", "5901"]
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - ai-network
+
+networks:
+  ai-network:
+    driver: bridge
+
+volumes:
+  ollama:
