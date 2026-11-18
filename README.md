@@ -15,7 +15,3 @@ http://localhost:7788
 ```bash
 sudo docker compose down
 ```
-
-http://ollama:11434
-qwen3:8b -> no va
-qwen2.5vl:7b
